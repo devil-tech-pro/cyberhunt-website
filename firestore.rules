@@ -1,0 +1,44 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() { return request.auth != null; }
+    function owns(uid) { return signedIn() && request.auth.uid == uid; }
+
+    // Private learner profile. A user may read/write only their own profile.
+    match /users/{uid} {
+      allow read: if owns(uid);
+      allow create, update: if owns(uid)
+        && request.resource.data.uid == uid
+        && request.resource.data.email == request.auth.token.email;
+      allow delete: if false;
+    }
+
+    // User-specific progress and activity. Document ownership is tied to Firebase UID.
+    match /enrollments/{enrollmentId} {
+      allow read: if signedIn() && resource.data.uid == request.auth.uid;
+      allow create, update: if signedIn() && request.resource.data.uid == request.auth.uid;
+      allow delete: if signedIn() && resource.data.uid == request.auth.uid;
+    }
+    match /quizAttempts/{attemptId} {
+      allow read: if signedIn() && resource.data.uid == request.auth.uid;
+      allow create: if signedIn()
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.score is int
+        && request.resource.data.totalQuestions is int
+        && request.resource.data.score >= 0
+        && request.resource.data.totalQuestions > 0
+        && request.resource.data.score <= request.resource.data.totalQuestions;
+      allow update, delete: if false;
+    }
+    match /certificates/{certificateId} {
+      allow read: if signedIn() && resource.data.uid == request.auth.uid;
+      allow write: if false;
+    }
+
+    // Public catalogue documents; only trusted/admin tooling should publish content.
+    match /courses/{id} { allow read: if resource.data.status == 'published'; allow write: if false; }
+    match /notes/{id} { allow read: if resource.data.status == 'published'; allow write: if false; }
+    match /quizzes/{id} { allow read: if resource.data.status == 'published'; allow write: if false; }
+    match /{document=**} { allow read, write: if false; }
+  }
+}

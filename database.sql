@@ -1,0 +1,107 @@
+CREATE DATABASE IF NOT EXISTS cyberhunt CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+USE cyberhunt;
+
+CREATE TABLE IF NOT EXISTS users (
+  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  full_name VARCHAR(120) NOT NULL,
+  email VARCHAR(190) NOT NULL UNIQUE,
+  username VARCHAR(30) NOT NULL UNIQUE,
+  password_hash VARCHAR(255) NOT NULL,
+  role ENUM('student','instructor','admin') NOT NULL DEFAULT 'student',
+  status ENUM('active','inactive','blocked') NOT NULL DEFAULT 'active',
+  email_verified_at DATETIME NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS courses (
+  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  slug VARCHAR(120) NOT NULL UNIQUE,
+  title VARCHAR(190) NOT NULL,
+  description TEXT NULL,
+  level VARCHAR(40) NULL,
+  duration_minutes INT UNSIGNED NULL,
+  thumbnail VARCHAR(255) NULL,
+  status ENUM('draft','published','archived') NOT NULL DEFAULT 'draft',
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS course_modules (
+  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  course_id BIGINT UNSIGNED NOT NULL,
+  title VARCHAR(190) NOT NULL,
+  content LONGTEXT NULL,
+  video_url VARCHAR(500) NULL,
+  sort_order INT NOT NULL DEFAULT 0,
+  FOREIGN KEY (course_id) REFERENCES courses(id) ON DELETE CASCADE
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS enrollments (
+  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  user_id BIGINT UNSIGNED NOT NULL,
+  course_id BIGINT UNSIGNED NOT NULL,
+  status ENUM('active','completed','cancelled') NOT NULL DEFAULT 'active',
+  progress_percent DECIMAL(5,2) NOT NULL DEFAULT 0,
+  enrolled_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE KEY uq_user_course (user_id, course_id),
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+  FOREIGN KEY (course_id) REFERENCES courses(id) ON DELETE CASCADE
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS notes (
+  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  slug VARCHAR(120) NOT NULL UNIQUE,
+  title VARCHAR(190) NOT NULL,
+  description TEXT NULL,
+  file_path VARCHAR(500) NULL,
+  status ENUM('draft','published','archived') NOT NULL DEFAULT 'draft',
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS quizzes (
+  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  slug VARCHAR(120) NOT NULL UNIQUE,
+  title VARCHAR(190) NOT NULL,
+  description TEXT NULL,
+  status ENUM('draft','published','archived') NOT NULL DEFAULT 'draft',
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS quiz_questions (
+  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  quiz_id BIGINT UNSIGNED NOT NULL,
+  question_text TEXT NOT NULL,
+  option_a VARCHAR(500) NOT NULL,
+  option_b VARCHAR(500) NOT NULL,
+  option_c VARCHAR(500) NOT NULL,
+  option_d VARCHAR(500) NOT NULL,
+  correct_option ENUM('A','B','C','D') NOT NULL,
+  explanation TEXT NULL,
+  sort_order INT NOT NULL DEFAULT 0,
+  FOREIGN KEY (quiz_id) REFERENCES quizzes(id) ON DELETE CASCADE
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS quiz_attempts (
+  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  user_id BIGINT UNSIGNED NOT NULL,
+  quiz_id BIGINT UNSIGNED NOT NULL,
+  score INT UNSIGNED NOT NULL,
+  total_questions INT UNSIGNED NOT NULL,
+  attempted_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+  FOREIGN KEY (quiz_id) REFERENCES quizzes(id) ON DELETE CASCADE
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS certificates (
+  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  user_id BIGINT UNSIGNED NOT NULL,
+  course_id BIGINT UNSIGNED NULL,
+  certificate_code VARCHAR(80) NOT NULL UNIQUE,
+  issued_at DATETIME NOT NULL,
+  status ENUM('valid','revoked') NOT NULL DEFAULT 'valid',
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+  FOREIGN KEY (course_id) REFERENCES courses(id) ON DELETE SET NULL
+) ENGINE=InnoDB;
+
+CREATE INDEX idx_enrollments_user ON enrollments(user_id);
+CREATE INDEX idx_attempts_user_date ON quiz_attempts(user_id, attempted_at);
